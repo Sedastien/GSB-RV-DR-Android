@@ -63,7 +63,7 @@ public class ListeRvActivity extends AppCompatActivity {
 
         Rapports.setAdapter(arrayAdapter);
 
-        String url = String.format("http://192.168.1.45:5000/rapports/%s/%s/%s",Session.getSession().getVisiteur().getMatricule(), mois, annee);
+        String url = String.format("http://%s:5000/rapports/%s/%s/%s", Session.getSession().getIpServeur(),Session.getSession().getVisiteur().getMatricule(), mois, annee);
         Response.Listener<JSONArray> ecouteurReponse = new Response.Listener<JSONArray>() {
 
             public void onResponse(JSONArray response) {

@@ -25,6 +25,7 @@ import org.json.JSONObject;
 import fr.gsb.rv.entites.Visiteur;
 import fr.gsb.rv.modeles.MenuActivity;
 import fr.gsb.rv.technique.Session;
+import fr.gsb.rv.technique.settingActivity;
 import fr.gsb.rv.modeles.ModeleGSB;
 
 public class MainActivity extends AppCompatActivity {
@@ -36,7 +37,9 @@ public class MainActivity extends AppCompatActivity {
     EditText etMdp ;
     Button bSeConnecter ;
     Button bAnnuler ;
+    Button Admin ;
     Visiteur vis ;
+
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -44,11 +47,9 @@ public class MainActivity extends AppCompatActivity {
         setContentView(R.layout.activity_main);
         tvErreur = ( TextView ) findViewById( R.id.tvErreur );
         tvErreur.setText("") ;
-
         etMatricule = ( EditText ) findViewById(R.id.matricule) ;
-
         etMdp = ( EditText ) findViewById(R.id.motDePasse) ;
-
+        Admin = (Button) findViewById(R.id.Admin) ;
     }
 
 
@@ -57,16 +58,7 @@ public class MainActivity extends AppCompatActivity {
         matricule = this.etMatricule.getText().toString() ;
         mdp = this.etMdp.getText().toString() ;
 
-        /**Visiteur leVisiteur = ModeleGSB.getInstance().seConnecter(matricule, mdp) ;
-       if(leVisiteur == null){
-           tvErreur.setText("Echec à la connexion. Recommencez...");
-           tvErreur.setTextColor(R.color.rouge);
-       }else{
-           tvErreur.setText("OK: Bonjour M." + leVisiteur.getNom());
-           tvErreur.setTextColor(R.color.vert);
-       }*/
-
-        String url = String.format("http://192.168.1.45:5000/visiteurs/%s/%s", matricule, mdp) ;
+        String url = String.format("http://%s:5000/visiteurs/%s/%s",Session.getSession().getIpServeur(), matricule, mdp) ;
 
         Response.Listener<JSONObject> ecouteurReponse = new Response.Listener<JSONObject>() {
 
@@ -79,7 +71,6 @@ public class MainActivity extends AppCompatActivity {
                     leVisiteur.setPrenom(response.getString("vis_prenom"));
                     leVisiteur.setMdp(MainActivity.this.mdp);
                     Session.ouvrir(leVisiteur);
-
 
                     Log.i("APP-RV", "" + leVisiteur) ;
                     tvErreur.setText(" [Ok] Connexion réussie !");
@@ -147,5 +138,9 @@ public class MainActivity extends AppCompatActivity {
         this.tvErreur.setText("");
     }
 
+    public void parametres(View vue){
+        Intent intentionEnvoyer = new Intent(MainActivity.this, settingActivity.class) ;
+        startActivity(intentionEnvoyer);
+    }
 
 }

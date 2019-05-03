@@ -1,6 +1,11 @@
 package fr.gsb.rv.entites;
 
-public class Praticien {
+import android.os.Parcel;
+import android.os.Parcelable;
+
+import java.io.Serializable;
+
+public class Praticien  implements Parcelable {
     private int Num ;
     private String Nom ;
     private String Prenom ;
@@ -10,7 +15,7 @@ public class Praticien {
     private double coeffNotoriete ;
     private String typeCode ;
 
-    public Praticien() {
+    public Praticien()  {
     }
 
     public Praticien(int num, String nom, String prenom, String adresse, String cp, String ville, double coeffNotoriete, String typeCode) {
@@ -23,6 +28,29 @@ public class Praticien {
         this.coeffNotoriete = coeffNotoriete;
         this.typeCode = typeCode;
     }
+
+    protected Praticien(Parcel in) {
+        Num = in.readInt();
+        Nom = in.readString();
+        Prenom = in.readString();
+        adresse = in.readString();
+        cp = in.readString();
+        ville = in.readString();
+        coeffNotoriete = in.readDouble();
+        typeCode = in.readString();
+    }
+
+    public static final Creator<Praticien> CREATOR = new Creator<Praticien>() {
+        @Override
+        public Praticien createFromParcel(Parcel in) {
+            return new Praticien(in);
+        }
+
+        @Override
+        public Praticien[] newArray(int size) {
+            return new Praticien[size];
+        }
+    };
 
     public int getNum() {
         return Num;
@@ -89,7 +117,23 @@ public class Praticien {
     }
 
     @Override
-    public String toString() {
+    public int describeContents() {
+        return 0;
+    }
+
+    @Override
+    public void writeToParcel(Parcel parcel, int i) {
+        parcel.writeInt(Num);
+        parcel.writeString(Nom);
+        parcel.writeString(Prenom);
+        parcel.writeString(adresse);
+        parcel.writeString(cp);
+        parcel.writeString(ville);
+        parcel.writeDouble(coeffNotoriete);
+        parcel.writeString(typeCode);
+    }
+
+    public String toString(){
         return this.Nom + " " + this.Prenom ;
     }
 }

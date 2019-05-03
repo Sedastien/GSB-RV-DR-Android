@@ -24,10 +24,16 @@ import com.android.volley.toolbox.Volley;
 
 import org.json.JSONArray;
 import org.json.JSONException;
+import org.json.JSONObject;
 import org.w3c.dom.Text;
 
+import java.io.DataOutputStream;
+import java.net.HttpURLConnection;
+import java.net.URL;
+import java.net.URLEncoder;
 import java.util.ArrayList;
 import java.util.Calendar;
+import java.util.Collections;
 import java.util.GregorianCalendar;
 import java.util.List;
 
@@ -37,11 +43,13 @@ import fr.gsb.rv.entites.Praticien;
 import fr.gsb.rv.entites.RapportVisite;
 import fr.gsb.rv.technique.Session;
 
-public class SaisirActivity extends AppCompatActivity implements DatePickerDialog.OnDateSetListener{
+public class SaisirActivity extends AppCompatActivity implements DatePickerDialog.OnDateSetListener
+,AdapterView.OnItemSelectedListener{
 
     private Button valider ;
     private Button annuler ;
     private TextView date;
+    private String laDateDeVisite ;
     private Button modifierDate ;
     private Spinner spPraticiens ;
     private Spinner spMotifs ;
@@ -52,6 +60,8 @@ public class SaisirActivity extends AppCompatActivity implements DatePickerDialo
     private GregorianCalendar dateVisite ;
     private List<Praticien> lesPraticiens = new ArrayList<Praticien>() ;
     private List<Motif> lesMotifs = new ArrayList<Motif>() ;
+    private List<String> lesPraticiensString = new ArrayList<>();
+    private List<String> lesMotifsString = new ArrayList<>();
     private String[] lesCoefConficance = {"1","2","3","4","5","6","7","8","9","10","11","12","13","14","15","16","17","18","19","20"} ;
     GregorianCalendar aujourdhui = new GregorianCalendar() ;
     private int jour = aujourdhui.get(Calendar.DAY_OF_MONTH) ;
@@ -60,10 +70,11 @@ public class SaisirActivity extends AppCompatActivity implements DatePickerDialo
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
-        this.getPraticiens();
-        this.getMotifs();
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_saisir);
+        Bundle paquet = getIntent().getExtras();
+        lesMotifs = paquet.getParcelableArrayList("lesMotifs") ;
+        lesPraticiens = paquet.getParcelableArrayList("lesPraticiens") ;
         date = (TextView) findViewById(R.id.date);
         modifierDate = (Button) findViewById(R.id.modifierDate);
         spPraticiens = (Spinner) findViewById(R.id.spPraticien);
@@ -74,12 +85,18 @@ public class SaisirActivity extends AppCompatActivity implements DatePickerDialo
         annuler = (Button) findViewById(R.id.annuler);
 
         date.setText(jour + "/" + mois + "/" + annee);
+        laDateDeVisite = annee+"-"+mois+"-"+jour;
 
         System.out.println("Taille de lesPraticiens : "+lesPraticiens.size());
         System.out.println("Taille de lesMotifs     : "+lesMotifs.size());
 
-        String[] lesPraticiensTest = {"Notini Alain", "Gosselin Albert", "Desmoulins Anne", "..."} ;
-        String[] lesMotifsTest  = {"Actualisation", "Informer", "Nouveaute", "Periodicite"} ;
+        for(int i=0;i<lesPraticiens.size();i++){
+            lesPraticiensString.add(lesPraticiens.get(i).toString()) ;
+        }
+
+        for(int i=0;i<lesMotifs.size();i++){
+            lesMotifsString.add(lesMotifs.get(i).toString()) ;
+        }
 
 
         Log.i("T.Pra", Integer.toString(lesPraticiens.size()));
@@ -87,20 +104,23 @@ public class SaisirActivity extends AppCompatActivity implements DatePickerDialo
         ArrayAdapter<String> aaPraticiens = new ArrayAdapter<String>(
                 SaisirActivity.this,
                 android.R.layout.simple_spinner_item,
-                lesPraticiensTest
+                lesPraticiensString//Test
         );
         aaPraticiens.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
         spPraticiens.setAdapter(aaPraticiens);
-        spPraticiens.setOnItemSelectedListener(new spPraticiensListener());
+        spPraticiens.setOnItemSelectedListener(this);
+        //spPraticiens.setOnItemSelectedListener(new spPraticiensListener());
+        Log.i("T.Pra", Integer.toString(lesPraticiens.size()));
 
         ArrayAdapter<String> aaMotifs = new ArrayAdapter<String>(
                 SaisirActivity.this,
                 android.R.layout.simple_spinner_item,
-                lesMotifsTest
+                lesMotifsString//Test
         );
         aaMotifs.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
         spMotifs.setAdapter(aaMotifs);
-        spMotifs.setOnItemSelectedListener(new spMotifsListener());
+        spMotifs.setOnItemSelectedListener(this);
+        //spMotifs.setOnItemSelectedListener(new spMotifsListener());
 
 
         ArrayAdapter<String> aaCoefConfiance = new ArrayAdapter<String>(
@@ -110,7 +130,8 @@ public class SaisirActivity extends AppCompatActivity implements DatePickerDialo
         );
         aaCoefConfiance.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
         spCoeffConfiance.setAdapter(aaCoefConfiance);
-        spCoeffConfiance.setOnItemSelectedListener(new spCoeffConfianceListener());
+        spCoeffConfiance.setOnItemSelectedListener(this);
+        //spCoeffConfiance.setOnItemSelectedListener(new spCoeffConfianceListener());
 
 
     }
@@ -125,39 +146,62 @@ public class SaisirActivity extends AppCompatActivity implements DatePickerDialo
     }
 
     public void valider(View vue){
-        String url = String.format("http://192.168.1.45:5000/%s/%s/%s/%s", Session.getSession().getVisiteur().getMatricule());
-        Response.Listener<JSONArray> ecouteurReponse = new Response.Listener<JSONArray>() {
+        Praticien praticienSelectionne = new Praticien() ;
+        Motif motifSelectionne = new Motif() ;
 
-            public void onResponse(JSONArray response) {
+        praticienSelectionne = lesPraticiens.get(spPraticiens.getSelectedItemPosition());
+        motifSelectionne = lesMotifs.get(spMotifs.getSelectedItemPosition()) ;
+
+        final String matriculeVisiteur = Session.getSession().getVisiteur().getMatricule() ;
+        final String matriculePraticien = Integer.toString(praticienSelectionne.getNum());
+        final String codeMotif = motifSelectionne.getCode();
+        final String bilan = etBilan.getText().toString();
+        final String dateRedaction = annee+"-"+mois+"-"+jour ;
+        final String dateVisite = this.laDateDeVisite;
+        final String rapCoeffConfiance = lesCoefConficance[spCoeffConfiance.getSelectedItemPosition()];
+
+        Thread thread = new Thread(new Runnable() {
+            public void run() {
                 try {
-                    for (int i = 0; i < response.length(); i++) {
-                        Praticien unPraticien = new Praticien();
-                        unPraticien.setNum(response.getJSONObject(i).getInt("pra_num"));
-                        unPraticien.setNom(response.getJSONObject(i).getString("pra_nom"));
-                        unPraticien.setPrenom(response.getJSONObject(i).getString("pra_prenom"));
-                        unPraticien.setVille(response.getJSONObject(i).getString("pra_ville"));
+                    String url1 = String.format("http://%s:5000/rapports", Session.getSession().getIpServeur());
+                    URL url = new URL(url1);
+                    HttpURLConnection conn = (HttpURLConnection) url.openConnection();
+                    conn.setRequestMethod("POST");
+                    conn.setRequestProperty("Content-Type", "application/json;charset=UTF-8");
+                    conn.setRequestProperty("Accept", "application/json");
+                    conn.setDoOutput(true);
+                    conn.setDoInput(true);
 
-                        Log.i("le praticien est", unPraticien.toString());
-                        lesPraticiens.add(unPraticien);
-                    }
+                    JSONObject jsonParam = new JSONObject();
+                    jsonParam.put("matricule", matriculeVisiteur);
+                    jsonParam.put("dateVisite", dateVisite) ;
+                    jsonParam.put("bilan", bilan);
+                    jsonParam.put("rapDateRedaction", dateRedaction) ;
+                    jsonParam.put("rapCoeffConfiance",rapCoeffConfiance) ;
+                    jsonParam.put("praticien", matriculePraticien);
+                    jsonParam.put("codeMotif", codeMotif);
 
-                } catch (JSONException e) {
-                    Log.e("APP-RV", "Erreur JSON : " + e.getMessage());
+                    Log.i("JSON", jsonParam.toString());
+                    DataOutputStream os = new DataOutputStream(conn.getOutputStream());
+                    //os.writeBytes(URLEncoder.encode(jsonParam.toString(), "UTF-8"));
+                    os.writeBytes(jsonParam.toString());
+
+                    os.flush();
+                    os.close();
+
+                    Log.i("STATUS", String.valueOf(conn.getResponseCode()));
+                    Log.i("MSG", conn.getResponseMessage());
+
+                    conn.disconnect();
+                } catch (Exception e) {
+                    e.printStackTrace();
                 }
             }
-        };
+        });
 
-        Response.ErrorListener ecouteurErreur = new Response.ErrorListener() {
-            @Override
-            public void onErrorResponse(VolleyError error) {
-                int codeErreur = Log.e("APP-RV", "ERREUR HTTP : " + error.getMessage());
-            }
-        };
-
-        JsonArrayRequest requete = new JsonArrayRequest(Request.Method.POST, url, null, ecouteurReponse, ecouteurErreur);
-        RequestQueue fileRequetes = Volley.newRequestQueue(this);
-        fileRequetes.add(requete);
+        thread.start();
     }
+
 
     public void annuler(View vue){
         etBilan.setText("");
@@ -167,78 +211,20 @@ public class SaisirActivity extends AppCompatActivity implements DatePickerDialo
     @Override
     public void onDateSet(DatePicker datePicker, int year, int monthOfYear, int dayOfMonth) {
         String dateVisite = String.format("%02d/%02d/%04d", dayOfMonth, monthOfYear + 1, year) ;
+        this.laDateDeVisite = String.format("%04d-%02d-%02d", year, monthOfYear + 1, dayOfMonth) ;
         this.date.setText(dateVisite);
         this.dateVisite = new GregorianCalendar(year, monthOfYear, dayOfMonth);
     }
 
-    public void getPraticiens(){
-        System.out.println("Appel de getPraticiens");
-        String url = String.format("http://192.168.1.45:5000/praticiens");
-        Response.Listener<JSONArray> ecouteurReponse = new Response.Listener<JSONArray>() {
-
-            public void onResponse(JSONArray response) {
-                try {
-                    for (int i = 0; i < response.length(); i++) {
-                        Praticien unPraticien = new Praticien();
-                        unPraticien.setNum(response.getJSONObject(i).getInt("pra_num"));
-                        unPraticien.setNom(response.getJSONObject(i).getString("pra_nom"));
-                        unPraticien.setPrenom(response.getJSONObject(i).getString("pra_prenom"));
-                        unPraticien.setVille(response.getJSONObject(i).getString("pra_ville"));
-
-                        System.out.println("Nouveau Praticien : "+unPraticien.toString());
-                        lesPraticiens.add(unPraticien);
-                    }
-
-                } catch (JSONException e) {
-                    Log.e("APP-RV", "Erreur JSON : " + e.getMessage());
-                }
-            }
-        };
-
-        Response.ErrorListener ecouteurErreur = new Response.ErrorListener() {
-            @Override
-            public void onErrorResponse(VolleyError error) {
-                int codeErreur = Log.e("APP-RV", "ERREUR HTTP : " + error.getMessage());
-            }
-        };
-
-        JsonArrayRequest requete = new JsonArrayRequest(Request.Method.GET, url, null, ecouteurReponse, ecouteurErreur);
-        RequestQueue fileRequetes = Volley.newRequestQueue(this);
-        fileRequetes.add(requete);
+    @Override
+    public void onItemSelected(AdapterView<?> adapterView, View view, int i, long l) {
+        System.out.println("Nouvel item selectionne ! Taille de praticiens : "+lesPraticiens.size() );
+        System.out.println("Nouvel item selectionne ! Taille de Motifs : "+lesMotifs.size() );
     }
 
-    public void getMotifs(){
-        System.out.println("Appel de getMotifs");
-        String url = String.format("http://192.168.1.45:5000/motifs");
-        Response.Listener<JSONArray> ecouteurReponse = new Response.Listener<JSONArray>() {
+    @Override
+    public void onNothingSelected(AdapterView<?> adapterView) {
 
-            public void onResponse(JSONArray response) {
-                try {
-                    for (int i = 0; i < response.length(); i++) {
-                        Motif unMotif = new Motif() ;
-                        unMotif.setCode(response.getJSONObject(i).getString("mo_code"));
-                        unMotif.setLibelle(response.getJSONObject(i).getString("mo_libelle"));
-
-                        System.out.println("Nouveau Motif : "+unMotif.toString());
-                        lesMotifs.add(unMotif);
-                    }
-
-                } catch (JSONException e) {
-                    Log.e("APP-RV", "Erreur JSON : " + e.getMessage());
-                }
-            }
-        };
-
-        Response.ErrorListener ecouteurErreur = new Response.ErrorListener() {
-            @Override
-            public void onErrorResponse(VolleyError error) {
-                int codeErreur = Log.e("APP-RV", "ERREUR HTTP : " + error.getMessage());
-            }
-        };
-
-        JsonArrayRequest requete = new JsonArrayRequest(Request.Method.GET, url, null, ecouteurReponse, ecouteurErreur);
-        RequestQueue fileRequetes = Volley.newRequestQueue(this);
-        fileRequetes.add(requete);
     }
 }
 
@@ -246,6 +232,7 @@ class spPraticiensListener implements AdapterView.OnItemSelectedListener{
     @Override
     public void onItemSelected(AdapterView<?> adapterView, View view, int i, long l) {
         Log.i("PRATICIEN","Nouvel item selectionne") ;
+        System.out.println("Taille actuelle de Praticiens :");
     }
 
     @Override

@@ -48,7 +48,9 @@ public class VisuEchantActivity extends AppCompatActivity implements AdapterView
 
                 listeEchantillons.setAdapter(arrayAdapter);
 
-                String url = String.format("http://192.168.1.45:5000/rapports/echantillons/%s/%s",Session.getSession().getVisiteur().getMatricule(), Integer.toString(numRapport));
+                String url = String.format("http://%s:5000/rapports/echantillons/%s/%s", Session.getSession().getIpServeur(),
+                        Session.getSession().getVisiteur().getMatricule(), Integer.toString(numRapport));
+
                 Response.Listener<JSONArray> ecouteurReponse = new Response.Listener<JSONArray>() {
 
                     public void onResponse(JSONArray response) {

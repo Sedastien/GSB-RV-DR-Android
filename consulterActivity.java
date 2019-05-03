@@ -98,6 +98,7 @@ public class consulterActivity extends AppCompatActivity {
     }
 
     public void annuler(View vue){
+        consulterActivity.this.finish();
     }
 
     public int moisToNumber(String leMois){
